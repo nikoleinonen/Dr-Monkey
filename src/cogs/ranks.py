@@ -53,6 +53,10 @@ class RankAnalysisView(ui.View):
             db_manager_func = functools.partial(self.bot.db_manager.get_single_record_analysis_data_for_guild, interaction.guild.id, metric=self.mode, order="DESC")
         elif self.ranking_type == "lowest":
             db_manager_func = functools.partial(self.bot.db_manager.get_single_record_analysis_data_for_guild, interaction.guild.id, metric=self.mode, order="ASC")
+        elif self.ranking_type == "wins": # New: Top Wins
+            db_manager_func = functools.partial(self.bot.db_manager.get_top_wins_data_for_guild, interaction.guild.id)
+        elif self.ranking_type == "win_rate": # New: Highest Win Rate
+            db_manager_func = functools.partial(self.bot.db_manager.get_top_win_rate_data_for_guild, interaction.guild.id)
         
         if db_manager_func: # Ensure a function was selected before executing
             analysis_data = await self.bot.loop.run_in_executor(None, db_manager_func)
@@ -109,7 +113,18 @@ class RankAnalysisView(ui.View):
                 self.target_user.id, plot_title, metric_name_for_plot_label
             )
 
-        leaderboard_text = await generate_leaderboard_string(interaction, leaderboard_data, self.bot.db_manager, metric_name_for_leaderboard)
+        elif self.ranking_type == "wins":
+            leaderboard_data = analysis_data
+            metric_name_for_leaderboard = "Total Monkey-Off Wins"
+            plot_title = "Top 10 Monkeys by Total Wins"
+            plot_buffer = await generate_leaderboard_bar_plot(interaction, analysis_data, self.bot, self.target_user.id, plot_title, metric_name_for_leaderboard)
+        elif self.ranking_type == "win_rate":
+            leaderboard_data = analysis_data
+            metric_name_for_leaderboard = "Monkey-Off Win Rate (%)"
+            plot_title = "Top 10 Monkeys by Win Rate"
+            # The x-axis label for the plot should be the same as the leaderboard metric name
+            plot_buffer = await generate_leaderboard_bar_plot(interaction, analysis_data, self.bot, self.target_user.id, plot_title, metric_name_for_leaderboard)
+        leaderboard_text = await generate_leaderboard_string(interaction, leaderboard_data, self.bot, metric_name_for_leaderboard)
         plot_file = discord.File(plot_buffer, filename=f"{self.ranking_type}_{self.mode}_rank_plot.png") if plot_buffer else None
         content = leaderboard_text if leaderboard_text else "Could not generate leaderboard."
 
@@ -142,15 +157,25 @@ class RankAnalysisView(ui.View):
     @ui.button(label="Lowest Monkey %", style=discord.ButtonStyle.secondary, custom_id="rank_lowest_monkey", row=2)
     async def low_monkey_button(self, interaction: discord.Interaction, button: ui.Button): await self.update_view(interaction, "lowest", "monkey")
 
+    # --- Row 4: Monkey-Off Rankings ---
+    @ui.button(label="Top Wins", style=discord.ButtonStyle.secondary, custom_id="rank_wins_count", row=3)
+    async def top_wins_button(self, interaction: discord.Interaction, button: ui.Button): await self.update_view(interaction, "wins", "count")
+    @ui.button(label="Highest Win %", style=discord.ButtonStyle.secondary, custom_id="rank_win_rate_percentage", row=3)
+    async def highest_win_rate_button(self, interaction: discord.Interaction, button: ui.Button): await self.update_view(interaction, "win_rate", "percentage")
+
 @is_whitelisted_guild()
 @is_allowed_bot_channel()
 class RanksCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    rank_group = app_commands.Group(name="rank", description="Commands for viewing user rankings.")
+    # The user requested the command to be called /ranks directly, not /rank analysis.
+    # So, we'll make 'ranks' the main command.
+    # If we wanted subcommands like /ranks analysis, /ranks wins, we'd keep the group.
+    # For now, let's make /ranks the main command that opens the view.
+    # rank_group = app_commands.Group(name="rank", description="Commands for viewing user rankings.")
 
-    @rank_group.command(name="analysis", description="Shows user rankings by various metrics.")
+    @app_commands.command(name="ranks", description="Shows user rankings by various metrics (Analysis, Wins, Win Rate).")
     @app_commands.describe(user="The user to highlight on the plot (optional).")
     async def analysis(self, interaction: discord.Interaction, user: discord.Member = None):
         """
@@ -166,4 +191,7 @@ class RanksCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     cog = RanksCog(bot)
+    # If using a group, you'd add the group to the tree:
+    # bot.tree.add_command(cog.rank_group)
+    # But since we're making /ranks a top-level command, just add the cog.
     await bot.add_cog(cog)

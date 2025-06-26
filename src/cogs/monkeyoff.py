@@ -39,6 +39,17 @@ class MonkeyOffCommand(commands.Cog):
         challenger_percentage = random.randint(0, 100)
         opponent_percentage = random.randint(0, 100)
 
+        # Determine winner_id for database recording
+        winner_id = None
+        if challenger_percentage > opponent_percentage:
+            winner_id = challenger_id
+        elif opponent_percentage > challenger_percentage:
+            winner_id = opponent_id
+        
+        # Record the monkey-off result in the database
+        self.bot.db_manager.record_monkeyoff_result(
+            challenger_id, opponent_id, guild_id, challenger_percentage, opponent_percentage, winner_id
+        )
         # Get random monkey types for flavor
         challenger_monkey_type = monkey_types.get_random_monkey_type()
         opponent_monkey_type = monkey_types.get_random_monkey_type()

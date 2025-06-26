@@ -63,7 +63,7 @@ UPDATE_USER_PROFILE_ANALYSIS = """
     WHERE user_id = ? AND guild_id = ?
 """
 
-SELECT_AVG_ANALYSIS_FOR_GUILD = """
+SELECT_AVERAGE_ANALYSIS_FOR_GUILD = """
     SELECT
         user_id,
         CAST(AVG(iq_score) AS INTEGER) as avg_iq,
@@ -72,6 +72,20 @@ SELECT_AVG_ANALYSIS_FOR_GUILD = """
     WHERE guild_id = ?
     GROUP BY user_id
     HAVING COUNT(id) > 0
+"""
+
+SELECT_SINGLE_RECORD_ANALYSIS_BASE = """
+    SELECT user_id, iq_score, monkey_percentage
+    FROM (
+        SELECT
+            user_id,
+            iq_score,
+            monkey_percentage,
+            ROW_NUMBER() OVER(PARTITION BY user_id ORDER BY {order_by_clause} {direction}) as rn
+        FROM user_analysis_history
+        WHERE guild_id = ?
+    )
+    WHERE rn = 1
 """
 
 SELECT_USER_PROFILE = """
@@ -99,6 +113,13 @@ class DatabaseManager:
             logger.critical("Database path not configured. Call configure_database_path() first.")
             raise RuntimeError("Database path not configured before connect_database() call.")
         try:
+            # Ensure the directory for the database file exists before connecting.
+            # This prevents sqlite3.OperationalError if the directory is missing.
+            db_dir = os.path.dirname(self._db_file_path)
+            if db_dir:
+                logger.info(f"Ensuring database directory exists for connection: {db_dir}")
+                os.makedirs(db_dir, exist_ok=True)
+
             # The timeout parameter is crucial. It tells SQLite to wait for the specified
             # number of seconds if the database is locked, rather than failing immediately.
             self._db_connection = sqlite3.connect(self._db_file_path, timeout=15.0)
@@ -163,13 +184,6 @@ class DatabaseManager:
         if self._db_file_path is None:
             logger.critical("Database path not configured for initialization. Call configure_database_path() first.")
             return
-
-        if self._db_file_path:
-            db_dir = os.path.dirname(self._db_file_path)
-            if db_dir:
-                logger.info(f"Ensuring database directory exists for configured path: {db_dir}")
-                os.makedirs(db_dir, exist_ok=True)
-
         conn = self.get_db_connection()
         if conn is None:
             logger.critical("Failed to get database connection for initialization.")
@@ -286,7 +300,7 @@ class DatabaseManager:
             self.rollback_transaction() # Rollback if any part fails
             return False
 
-    def get_all_analysis_data_for_guild(self, guild_id: int) -> list[tuple[int, int, int]]:
+    def get_average_analysis_data_for_guild(self, guild_id: int) -> list[tuple[int, int, int]]:
         """
         Gets all users' AVERAGE analysis data (IQ, Monkey %) for a guild from their history.
         Returns list of (user_id, average_iq_score, average_monkey_percentage).
@@ -297,12 +311,54 @@ class DatabaseManager:
         results = []
         try:
             cursor = conn.cursor()
-            cursor.execute(SELECT_AVG_ANALYSIS_FOR_GUILD, (guild_id,))
+            cursor.execute(SELECT_AVERAGE_ANALYSIS_FOR_GUILD, (guild_id,))
             for row in cursor.fetchall():
                 results.append((row['user_id'], row['avg_iq'], row['avg_monkey']))
             return results
         except sqlite3.Error as e:
             logger.error(f"Error getting all (average) analysis data for guild {guild_id}: {e}", exc_info=True)
+            return []
+
+    def get_single_record_analysis_data_for_guild(self, guild_id: int, metric: str, order: str = "DESC") -> list[tuple[int, int, int]]:
+        """
+        Gets a single analysis record per user for a guild, based on a specific metric.
+
+        Args:
+            guild_id: The ID of the guild.
+            metric: The metric to order by ('iq', 'monkey', 'combined').
+            order: The direction to order by ('DESC' for top, 'ASC' for lowest).
+
+        Returns:
+            List of (user_id, iq_score, monkey_percentage) tuples.
+        """
+        conn = self.get_db_connection()
+        if conn is None: return []
+
+        if metric == 'iq':
+            order_by_clause = "iq_score"
+        elif metric == 'monkey':
+            order_by_clause = "monkey_percentage"
+        elif metric == 'combined':
+            order_by_clause = "(iq_score + monkey_percentage)"
+        else:
+            logger.error(f"Invalid metric '{metric}' for get_single_record_analysis_data_for_guild.")
+            return []
+
+        if order.upper() not in ["ASC", "DESC"]:
+            logger.error(f"Invalid order '{order}' for get_single_record_analysis_data_for_guild.")
+            return []
+
+        query = SELECT_SINGLE_RECORD_ANALYSIS_BASE.format(order_by_clause=order_by_clause, direction=order.upper())
+
+        results = []
+        try:
+            cursor = conn.cursor()
+            cursor.execute(query, (guild_id,))
+            for row in cursor.fetchall():
+                results.append((row['user_id'], row['iq_score'], row['monkey_percentage']))
+            return results
+        except sqlite3.Error as e:
+            logger.error(f"Error getting single record analysis data for guild {guild_id}: {e}", exc_info=True)
             return []
 
     def get_user_profile(self, user_id: int, guild_id: int):

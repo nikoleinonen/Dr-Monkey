@@ -10,54 +10,50 @@ from src.utils.formatters import format_large_number
 from src.core import constants
 from src.core.logging import get_logger
 
-logger = get_logger("PlotUtils")
-
-async def generate_scatter_rank_plot(
+async def generate_leaderboard_bar_plot(
     interaction: discord.Interaction,
-    data_tuples: list[tuple[int, float, float]],
+    ranked_data: list[tuple[int, float]],
+    db_manager: DatabaseManager,
     target_user_id: int,
     title: str,
-    y_label: str,
-    x_label: str
+    x_label: str,
+    limit: int = 10
 ) -> io.BytesIO | None:
     """
-    Generates a scatter plot for rankings (e.g., IQ vs Monkey Purity).
+    Generates a horizontal bar plot for a leaderboard.
     Returns a BytesIO buffer containing the plot image.
     """
-    if not data_tuples:
+    if not ranked_data:
         return None
 
-    plot_actual_user_ids = [d[0] for d in data_tuples]
-    plot_actual_y_values = [d[1] for d in data_tuples]
-    plot_actual_x_values = [d[2] for d in data_tuples]
+    data_to_plot = ranked_data[:limit]
+    data_to_plot.reverse()  # To plot top-to-bottom
 
-    plt.style.use('dark_background') # This is a global change, which is a separate issue. I'll leave it for now.
+    user_ids = [d[0] for d in data_to_plot]
+    scores = [d[1] for d in data_to_plot]
+
+    names = []
+    for uid in user_ids:
+        name = await get_display_name_for_user_id(uid, interaction.guild, db_manager)
+        names.append(name[:15] + '...' if len(name) > 18 else name)
+
+    plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(10, 6))
-    
-    scatter_colors = [constants.PRIMARY_SCATTER_COLOR] * len(plot_actual_user_ids)
-    scatter_sizes = [constants.PRIMARY_SCATTER_SIZE] * len(plot_actual_user_ids)
-    try:
-        scatter_highlight_index = plot_actual_user_ids.index(target_user_id)
-        scatter_colors[scatter_highlight_index] = constants.HIGHLIGHT_SCATTER_COLOR
-        scatter_sizes[scatter_highlight_index] = constants.HIGHLIGHT_SCATTER_SIZE
-    except ValueError:
-        pass # Target user not in this specific data set
 
-    ax.scatter(plot_actual_x_values, plot_actual_y_values, c=scatter_colors, s=scatter_sizes, alpha=constants.SCATTER_ALPHA)
+    bars = ax.barh(names, scores, color=constants.PRIMARY_BAR_COLOR)
+
+    try:
+        highlight_index = user_ids.index(target_user_id)
+        bars[highlight_index].set_color(constants.HIGHLIGHT_BAR_COLOR)
+    except ValueError:
+        pass  # Target user not in top N
+
     ax.set_xlabel(x_label)
-    ax.set_ylabel(y_label)
     ax.set_title(title, fontsize=constants.PLOT_TITLE_FONTSIZE)
-    ax.grid(True, linestyle=':', alpha=0.4, color=constants.GRID_COLOR)
     fig.patch.set_facecolor(constants.PLOT_BG_COLOR)
     ax.set_facecolor(constants.AXES_BG_COLOR)
+    plt.tight_layout(pad=2)
 
-    # Specific axis limits for analysis plot
-    if "Monkey Purity %" in x_label and "IQ Score" in y_label:
-        ax.set_xlim(constants.ANALYSIS_PLOT_X_LIMITS)
-        ax.set_ylim(constants.ANALYSIS_PLOT_Y_LIMITS)
-
-    plt.tight_layout()
-    
     buf = io.BytesIO()
     plt.savefig(buf, format='png', dpi=100)
     buf.seek(0)

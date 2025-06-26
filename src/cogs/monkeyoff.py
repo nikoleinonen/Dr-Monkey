@@ -2,8 +2,8 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import random
-from src.core.logging import get_logger
-from src.resources import monkeyoff_responses
+from src.core.logging import get_logger 
+from src.resources import monkeyoff_responses, monkey_types
 from src.utils.checks import is_whitelisted_guild
 
 
@@ -39,6 +39,10 @@ class MonkeyOffCommand(commands.Cog):
         challenger_percentage = random.randint(0, 100)
         opponent_percentage = random.randint(0, 100)
 
+        # Get random monkey types for flavor
+        challenger_monkey_type = monkey_types.get_random_monkey_type()
+        opponent_monkey_type = monkey_types.get_random_monkey_type()
+
         logger.info(f"Monkeyoff in ({guild_name}) {guild_id}: {challenger_name} ({challenger_id}) got {challenger_percentage}%.")
         logger.info(f"Monkeyoff in ({guild_name}) {guild_id}: {opponent_name} ({opponent_id}) got {opponent_percentage}%.")
 
@@ -51,7 +55,8 @@ class MonkeyOffCommand(commands.Cog):
             embed_color = discord.Color.gold()
 
         response_data = monkeyoff_responses.get_monkeyoff_response(
-            challenger, challenger_percentage, opponent, opponent_percentage
+            challenger, challenger_percentage, opponent, opponent_percentage,
+            challenger_monkey_type, opponent_monkey_type
         )
         
         # Use title and description from the structured response data
@@ -63,6 +68,9 @@ class MonkeyOffCommand(commands.Cog):
             description=embed_description,
             color=embed_color
         )
+
+        embed.add_field(name=f"{challenger.display_name}'s Form", value=f"**{challenger_monkey_type}**!", inline=True)
+        embed.add_field(name=f"{opponent.display_name}'s Form", value=f"**{opponent_monkey_type}**!", inline=True)
 
         await interaction.response.send_message(embed=embed)
 

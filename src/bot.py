@@ -1,9 +1,10 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from src.core.database import DatabaseManager # Import the class
+from src.core.database import DatabaseManager
 from src.core.logging import get_logger
-from src import config, constants
+from src import config
+from src.core import constants
 
 app_logger = get_logger("DrMonkeyBot")
 
@@ -17,7 +18,6 @@ class DrMonkey(commands.Bot):
         self.db_manager = db_manager # Store the db_manager
         self.bot_channel_ids = config.BOT_CHANNEL_IDS
         self.whitelisted_servers = config.WHITELISTED_GUILD_IDS
-        self._one_time_setup_done = False
         self.tree.on_error = self.on_app_command_error
 
     async def on_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):

@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
+import functools # Import functools for partial
 import asyncio
 import random
 from src.core.logging import get_logger
@@ -25,9 +26,11 @@ class AnalyzeCommand(commands.Cog):
         username = user.display_name
         guild_name = interaction.guild.name
 
-        # Record the analysis result in the database
-        # The guild check decorator ensures interaction.guild is not None
-        if not self.bot.db_manager.record_analysis_result(user.id, interaction.guild.id, iq_score, monkey_percentage, username, guild_name):
+        # Record the analysis result in the database in a separate thread to avoid blocking
+        # functools.partial is used to pass arguments to the synchronous function
+        record_func = functools.partial(self.bot.db_manager.record_analysis_result,
+                                        user.id, interaction.guild.id, iq_score, monkey_percentage, username, guild_name)
+        if not await self.bot.loop.run_in_executor(None, record_func):
             logger.error(f"Failed to record analysis for user {username} ({user.id}) in guild {guild_name} ({interaction.guild.id})")
 
         # Always send the full embed first, in every channel

@@ -1,11 +1,11 @@
 import discord
 from discord.ext import commands
 from discord import app_commands, ui
-from src.utils.checks import is_allowed_bot_channel, is_whitelisted_guild
-from src.core.database import DatabaseManager # Import DatabaseManager for type hinting
+import functools # Import functools for partial
 from src.utils.plot_utils import generate_leaderboard_bar_plot, generate_leaderboard_string
 from src.core.logging import get_logger
 import io
+from src.utils.checks import is_whitelisted_guild, is_allowed_bot_channel
 
 logger = get_logger("C_Ranks")
 
@@ -45,12 +45,17 @@ class RankAnalysisView(ui.View):
                 child.disabled = is_active
 
         analysis_data = []
+        # Run database queries in a separate thread to avoid blocking the event loop
+        db_manager_func = None
         if self.ranking_type == "average":
-            analysis_data = self.bot.db_manager.get_average_analysis_data_for_guild(interaction.guild.id)
+            db_manager_func = functools.partial(self.bot.db_manager.get_average_analysis_data_for_guild, interaction.guild.id)
         elif self.ranking_type == "top":
-            analysis_data = self.bot.db_manager.get_single_record_analysis_data_for_guild(interaction.guild.id, metric=self.mode, order="DESC")
+            db_manager_func = functools.partial(self.bot.db_manager.get_single_record_analysis_data_for_guild, interaction.guild.id, metric=self.mode, order="DESC")
         elif self.ranking_type == "lowest":
-            analysis_data = self.bot.db_manager.get_single_record_analysis_data_for_guild(interaction.guild.id, metric=self.mode, order="ASC")
+            db_manager_func = functools.partial(self.bot.db_manager.get_single_record_analysis_data_for_guild, interaction.guild.id, metric=self.mode, order="ASC")
+        
+        if db_manager_func: # Ensure a function was selected before executing
+            analysis_data = await self.bot.loop.run_in_executor(None, db_manager_func)
 
         if not analysis_data:
             message = "No analysis data found for any monkeys in this server yet. Use `/analyze` to get started!"
@@ -80,7 +85,7 @@ class RankAnalysisView(ui.View):
             metric_name_for_leaderboard = f"{'Combined Score (IQ + Monkey %)' if self.ranking_type == 'average' else ('Highest Combined Score (IQ + Monkey %)' if self.ranking_type == 'top' else 'Lowest Combined Score (IQ + Monkey %)')}"
             plot_title = f"{'Top' if self.ranking_type == 'top' else ('Lowest' if self.ranking_type == 'lowest' else 'Top')} 10 Monkeys by {'Average ' if self.ranking_type == 'average' else ''}Combined Score"
             plot_buffer = await generate_leaderboard_bar_plot(
-                interaction, leaderboard_data, self.bot.db_manager,
+                interaction, leaderboard_data, self.bot, # Pass bot instead of db_manager
                 self.target_user.id, plot_title, metric_name_for_plot_label
             )
         elif self.mode == "iq":
@@ -90,7 +95,7 @@ class RankAnalysisView(ui.View):
             metric_name_for_leaderboard = f"{'IQ Score' if self.ranking_type == 'average' else ('Highest IQ Score' if self.ranking_type == 'top' else 'Lowest IQ Score')}"
             plot_title = f"{'Top' if self.ranking_type == 'top' else ('Lowest' if self.ranking_type == 'lowest' else 'Top')} 10 Monkeys by {'Average ' if self.ranking_type == 'average' else ''}IQ Score"
             plot_buffer = await generate_leaderboard_bar_plot(
-                interaction, leaderboard_data, self.bot.db_manager,
+                interaction, leaderboard_data, self.bot, # Pass bot instead of db_manager
                 self.target_user.id, plot_title, metric_name_for_plot_label
             )
         elif self.mode == "monkey":
@@ -100,7 +105,7 @@ class RankAnalysisView(ui.View):
             metric_name_for_leaderboard = f"{'Monkey Purity %' if self.ranking_type == 'average' else ('Highest Monkey Purity %' if self.ranking_type == 'top' else 'Lowest Monkey Purity %')}"
             plot_title = f"{'Top' if self.ranking_type == 'top' else ('Lowest' if self.ranking_type == 'lowest' else 'Top')} 10 Monkeys by {'Average ' if self.ranking_type == 'average' else ''}Monkey Purity %"
             plot_buffer = await generate_leaderboard_bar_plot(
-                interaction, leaderboard_data, self.bot.db_manager,
+                interaction, leaderboard_data, self.bot, # Pass bot instead of db_manager
                 self.target_user.id, plot_title, metric_name_for_plot_label
             )
 

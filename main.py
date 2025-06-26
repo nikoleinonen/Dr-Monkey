@@ -19,14 +19,12 @@ async def run_bot():
 
     db_manager = DatabaseManager()
     db_manager.configure_database_path(config.DATABASE_FILE_PATH)
-    db_manager.connect_database()
 
     bot = DrMonkey(db_manager=db_manager)
     try:
         await bot.start(config.DISCORD_TOKEN)
     finally:
         await bot.close()
-        db_manager.close_database()
         app_logger.info("Bot has been shut down and database connection closed.")
 
 def main():

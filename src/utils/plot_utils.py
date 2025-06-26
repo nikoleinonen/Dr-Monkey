@@ -3,8 +3,9 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import io
 import discord
+from discord.ext import commands # Import commands for Bot type hinting
 from datetime import datetime
-from src.core.database import DatabaseManager # Import DatabaseManager
+import functools # Import functools for partial
 from src.utils.discord_utils import get_display_name_for_user_id
 from src.utils.formatters import format_large_number
 from src.core import constants
@@ -13,7 +14,7 @@ from src.core.logging import get_logger
 async def generate_leaderboard_bar_plot(
     interaction: discord.Interaction,
     ranked_data: list[tuple[int, float]],
-    db_manager: DatabaseManager,
+    bot: commands.Bot, # Accept bot object to access loop and db_manager
     target_user_id: int,
     title: str,
     x_label: str,
@@ -34,7 +35,7 @@ async def generate_leaderboard_bar_plot(
 
     names = []
     for uid in user_ids:
-        name = await get_display_name_for_user_id(uid, interaction.guild, db_manager)
+        name = await get_display_name_for_user_id(uid, interaction.guild, bot) # Pass bot
         names.append(name[:15] + '...' if len(name) > 18 else name)
 
     plt.style.use('dark_background')
@@ -52,19 +53,21 @@ async def generate_leaderboard_bar_plot(
     ax.set_title(title, fontsize=constants.PLOT_TITLE_FONTSIZE)
     fig.patch.set_facecolor(constants.PLOT_BG_COLOR)
     ax.set_facecolor(constants.AXES_BG_COLOR)
+    ax.tick_params(axis='x', colors='white') # Make x-axis ticks visible on dark background
+    ax.tick_params(axis='y', colors='white') # Make y-axis ticks visible on dark background
     plt.tight_layout(pad=2)
 
     buf = io.BytesIO()
-    plt.savefig(buf, format='png', dpi=100)
+    await bot.loop.run_in_executor(None, functools.partial(plt.savefig, buf, format='png', dpi=100)) # Run savefig in executor
     buf.seek(0)
-    plt.close(fig)
-    plt.style.use('default')
+    await bot.loop.run_in_executor(None, plt.close, fig) # Close figure in executor
+    await bot.loop.run_in_executor(None, plt.style.use, 'default') # Reset style in executor
     return buf
 
 async def generate_leaderboard_string(
     interaction: discord.Interaction,
     ranked_data: list[tuple[int, float]],
-    db_manager: DatabaseManager, # Add db_manager parameter
+    bot: commands.Bot, # Accept bot object to access loop and db_manager
     metric_name: str,
     limit: int = 10
 ) -> str | None:
@@ -78,7 +81,7 @@ async def generate_leaderboard_string(
     
     for i, (user_id, score_value) in enumerate(ranked_data[:limit]):
         rank_num = i + 1
-        name_to_display = await get_display_name_for_user_id(user_id, interaction.guild, db_manager)
+        name_to_display = await get_display_name_for_user_id(user_id, interaction.guild, bot) # Pass bot
         
         if len(name_to_display) > 25:
             name_to_display = name_to_display[:22] + "..."

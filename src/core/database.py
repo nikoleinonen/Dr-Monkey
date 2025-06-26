@@ -408,9 +408,9 @@ class DatabaseManager:
         try:
             with self._get_new_connection() as conn:
                 cursor = conn.cursor()
-            cursor.execute(SELECT_USER_PROFILE, (user_id, guild_id))
-            profile = cursor.fetchone()
-            return profile
+                cursor.execute(SELECT_USER_PROFILE, (user_id, guild_id))
+                profile = cursor.fetchone()
+                return profile
         except sqlite3.Error as e:
             logger.error(f"Error fetching user profile for user {user_id} in guild {guild_id}: {e}", exc_info=True)
             return None

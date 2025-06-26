@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import random
+import functools
 from src.core.logging import get_logger 
 from src.resources import monkeyoff_responses, monkey_types
 from src.utils.checks import is_whitelisted_guild
@@ -18,7 +19,6 @@ class MonkeyOffCommand(commands.Cog):
     @is_whitelisted_guild()
     @app_commands.describe(opponent="The user you're challenging.")
     async def monkeyoff(self, interaction: discord.Interaction, opponent: discord.Member) -> None:
-
         challenger = interaction.user
         guild_id = interaction.guild.id
         challenger_id = challenger.id
@@ -31,9 +31,15 @@ class MonkeyOffCommand(commands.Cog):
             await interaction.response.send_message("You can't monkey-off against yourself! Find a worthy adversary. OOK!", ephemeral=True)
             return
 
+        # Since DB operations can take a moment, defer the response.
+        await interaction.response.defer()
+
         # Ensure users exist in the database (for profile updates like username)
-        self.bot.db_manager.ensure_user_exists(challenger_id, guild_id, challenger_name)
-        self.bot.db_manager.ensure_user_exists(opponent_id, guild_id, opponent_name)
+        # Run in executor to avoid blocking the event loop
+        ensure_challenger_func = functools.partial(self.bot.db_manager.ensure_user_exists, challenger_id, guild_id, challenger_name)
+        ensure_opponent_func = functools.partial(self.bot.db_manager.ensure_user_exists, opponent_id, guild_id, opponent_name)
+        await self.bot.loop.run_in_executor(None, ensure_challenger_func)
+        await self.bot.loop.run_in_executor(None, ensure_opponent_func)
 
         # Generate random monkey percentages
         challenger_percentage = random.randint(0, 100)
@@ -47,9 +53,11 @@ class MonkeyOffCommand(commands.Cog):
             winner_id = opponent_id
         
         # Record the monkey-off result in the database
-        self.bot.db_manager.record_monkeyoff_result(
+        record_func = functools.partial(
+            self.bot.db_manager.record_monkeyoff_result,
             challenger_id, opponent_id, guild_id, challenger_percentage, opponent_percentage, winner_id
         )
+        await self.bot.loop.run_in_executor(None, record_func)
         # Get random monkey types for flavor
         challenger_monkey_type = monkey_types.get_random_monkey_type()
         opponent_monkey_type = monkey_types.get_random_monkey_type()
@@ -83,7 +91,7 @@ class MonkeyOffCommand(commands.Cog):
         embed.add_field(name=f"{challenger.display_name}'s Form", value=f"**{challenger_monkey_type}**!", inline=True)
         embed.add_field(name=f"{opponent.display_name}'s Form", value=f"**{opponent_monkey_type}**!", inline=True)
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(MonkeyOffCommand(bot))

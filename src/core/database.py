@@ -69,8 +69,8 @@ ALTER_ADD_TOTAL_MONKEYOFFS = "ALTER TABLE user_profiles ADD COLUMN total_monkeyo
 # Data Manipulation and Retrieval
 # SQL for upserting user profiles.
 UPSERT_USER_PROFILE = """
-    INSERT INTO user_profiles (user_id, guild_id, username, last_iq_score, last_monkey_percentage, analysis_tests_taken) 
-    VALUES (?, ?, ?, NULL, NULL, 0)
+    INSERT INTO user_profiles (user_id, guild_id, username)
+    VALUES (?, ?, ?)
     ON CONFLICT(user_id, guild_id) DO UPDATE SET
         username = EXCLUDED.username;
 """
@@ -257,30 +257,17 @@ class DatabaseManager:
         except sqlite3.Error as e:
             logger.error(f"Error ensuring user profile exists for user {user_id} in guild {guild_id}: {e}", exc_info=True)
             return False
-    def ensure_user_exists_and_get_profile(self, user_id: int, guild_id: int, username: str | None = None) -> sqlite3.Row | None:
-        """
-        Ensures a user profile and related stats rows exist, then retrieves the user's profile.
-        """
-        # First, ensure the user exists in the database.
-        if not self.ensure_user_exists(user_id, guild_id, username):
-            logger.error(f"ensure_user_exists_and_get_profile: Failed during ensure_user_exists for user {user_id}, guild {guild_id}.")
-            return None
-
-        profile = self.get_user_profile(user_id, guild_id)
-        if profile is None:
-            logger.warning(f"ensure_user_exists_and_get_profile: Profile not found for user {user_id}, guild {guild_id} after ensure_user_exists call.")
-        return profile
     def record_analysis_result(self, user_id: int, guild_id: int, iq_score: int, monkey_percentage: int, username: str, guild_name: str) -> bool:
         """
-        Records an analysis result (IQ and Monkey %) for a user.
-        Stores it in history and updates their latest scores in the profile.
-        This operation is now wrapped in a transaction for atomicity.
+        Records an analysis result (IQ and Monkey %) for a user in a single transaction.
+        Ensures the user profile exists, stores the result in history, and updates the profile.
         """
-        # Note: ensure_user_exists is called separately and handles its own connection.
         try:
             with self._get_new_connection() as conn:
                 cursor = conn.cursor()
                 timestamp = datetime.now(timezone.utc).isoformat(timespec='seconds')
+                # 1. Ensure user profile exists or update username
+                cursor.execute(UPSERT_USER_PROFILE, (user_id, guild_id, username))
                 # Insert into history table
                 cursor.execute(INSERT_ANALYSIS_HISTORY, (user_id, guild_id, iq_score, monkey_percentage, timestamp))
                 # Update user_profiles with last scores and increment tests_taken.

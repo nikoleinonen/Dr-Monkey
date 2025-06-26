@@ -180,8 +180,6 @@ class RankAnalysisView(ui.View):
     # Button to show highest monkey-off win rate.
     async def highest_win_rate_button(self, interaction: discord.Interaction, button: ui.Button): await self.update_view(interaction, "win_rate", "percentage")
 
-@is_whitelisted_guild()
-@is_allowed_bot_channel()
 class RanksCog(commands.Cog):
     """Cog for displaying various user rankings and leaderboards."""
     def __init__(self, bot: commands.Bot):
@@ -189,6 +187,8 @@ class RanksCog(commands.Cog):
 
     @app_commands.command(name="ranks", description="Shows user rankings by various metrics (Analysis, Wins, Win Rate).")
     @app_commands.describe(user="The user to highlight on the plot (optional).")
+    @is_whitelisted_guild()
+    @is_allowed_bot_channel()
     async def analysis(self, interaction: discord.Interaction, user: discord.Member = None):
         """
         Shows a comprehensive ranking view with options for average, top, and lowest

@@ -79,8 +79,8 @@ class DrMonkey(commands.Bot):
         self.db_manager.initialize_database()
         
         # Log the status of the server whitelist.
-        if not self.whitelisted_servers:
-            app_logger.warning("No servers whitelisted! The bot will not respond to commands in any server.")
+        if not self.whitelisted_servers: # If the list is empty, all guilds are allowed.
+            app_logger.info("No whitelisted servers configured. The bot will respond to commands in all servers.")
         else:
             app_logger.info(f"Server whitelist loaded. The bot will only respond in guilds: {self.whitelisted_servers}")
         

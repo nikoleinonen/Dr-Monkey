@@ -17,8 +17,8 @@ class MonkeyOffCommand(commands.Cog):
         self.bot = bot
     
     @app_commands.command(name="monkeyoff", description=f"Challenge another user to a monkey-off!")
-    @is_whitelisted_guild()
     @app_commands.describe(opponent="The user you're challenging.")
+    @is_whitelisted_guild()
     async def monkeyoff(self, interaction: discord.Interaction, opponent: discord.Member) -> None:
         """Challenges another user to a monkey-off, determining a winner based on random percentages."""
         # Extract challenger and opponent details.

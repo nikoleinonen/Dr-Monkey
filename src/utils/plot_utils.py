@@ -6,6 +6,7 @@ import discord
 from datetime import datetime
 from src.utils.discord_utils import get_display_name_for_user_id
 from src.utils.formatters import format_large_number
+from src.core import constants
 from src.core.logging import get_logger
 
 logger = get_logger("PlotUtils")
@@ -29,30 +30,30 @@ async def generate_scatter_rank_plot(
     plot_actual_y_values = [d[1] for d in data_tuples]
     plot_actual_x_values = [d[2] for d in data_tuples]
 
-    plt.style.use('dark_background')
+    plt.style.use('dark_background') # This is a global change, which is a separate issue. I'll leave it for now.
     fig, ax = plt.subplots(figsize=(10, 6))
     
-    scatter_colors = ['#4287f5'] * len(plot_actual_user_ids) 
-    scatter_sizes = [30] * len(plot_actual_user_ids)       
+    scatter_colors = [constants.PRIMARY_SCATTER_COLOR] * len(plot_actual_user_ids)
+    scatter_sizes = [constants.PRIMARY_SCATTER_SIZE] * len(plot_actual_user_ids)
     try:
         scatter_highlight_index = plot_actual_user_ids.index(target_user_id)
-        scatter_colors[scatter_highlight_index] = '#f5d442' 
-        scatter_sizes[scatter_highlight_index] = 100
+        scatter_colors[scatter_highlight_index] = constants.HIGHLIGHT_SCATTER_COLOR
+        scatter_sizes[scatter_highlight_index] = constants.HIGHLIGHT_SCATTER_SIZE
     except ValueError:
         pass # Target user not in this specific data set
 
-    ax.scatter(plot_actual_x_values, plot_actual_y_values, c=scatter_colors, s=scatter_sizes, alpha=0.7)
+    ax.scatter(plot_actual_x_values, plot_actual_y_values, c=scatter_colors, s=scatter_sizes, alpha=constants.SCATTER_ALPHA)
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
-    ax.set_title(title, fontsize=14)
-    ax.grid(True, linestyle=':', alpha=0.4, color='grey')
-    fig.patch.set_facecolor('#2E2E2E')
-    ax.set_facecolor('#3C3C3C')
+    ax.set_title(title, fontsize=constants.PLOT_TITLE_FONTSIZE)
+    ax.grid(True, linestyle=':', alpha=0.4, color=constants.GRID_COLOR)
+    fig.patch.set_facecolor(constants.PLOT_BG_COLOR)
+    ax.set_facecolor(constants.AXES_BG_COLOR)
 
     # Specific axis limits for analysis plot
     if "Monkey Purity %" in x_label and "IQ Score" in y_label:
-        ax.set_xlim(0, 100) 
-        ax.set_ylim(0, 200) 
+        ax.set_xlim(constants.ANALYSIS_PLOT_X_LIMITS)
+        ax.set_ylim(constants.ANALYSIS_PLOT_Y_LIMITS)
 
     plt.tight_layout()
     

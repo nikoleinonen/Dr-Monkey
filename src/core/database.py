@@ -6,8 +6,83 @@ from src.core.logging import get_logger
 
 logger = get_logger("DB_Manager")
 
+# --- SQL Query Constants ---
+
+# Table Creation and Alteration
+CREATE_USER_PROFILES_TABLE = """
+    CREATE TABLE IF NOT EXISTS user_profiles (
+        user_id INTEGER NOT NULL,
+        guild_id INTEGER NOT NULL,
+        username TEXT,
+        last_iq_score INTEGER DEFAULT NULL,
+        last_monkey_percentage INTEGER DEFAULT NULL,
+        analysis_tests_taken INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (user_id, guild_id)
+    )
+"""
+
+CREATE_USER_ANALYSIS_HISTORY_TABLE = """
+    CREATE TABLE IF NOT EXISTS user_analysis_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        guild_id INTEGER NOT NULL,
+        iq_score INTEGER NOT NULL,
+        monkey_percentage INTEGER NOT NULL,
+        timestamp TEXT NOT NULL,
+        FOREIGN KEY (user_id, guild_id) REFERENCES user_profiles(user_id, guild_id) ON DELETE CASCADE
+    )
+"""
+
+CREATE_ANALYSIS_HISTORY_INDEX = "CREATE INDEX IF NOT EXISTS idx_user_analysis_history_user_guild ON user_analysis_history (user_id, guild_id)"
+
+PRAGMA_TABLE_INFO = "PRAGMA table_info(user_profiles)"
+
+ALTER_ADD_USERNAME = "ALTER TABLE user_profiles ADD COLUMN username TEXT"
+ALTER_ADD_LAST_IQ = "ALTER TABLE user_profiles ADD COLUMN last_iq_score INTEGER DEFAULT NULL"
+ALTER_ADD_LAST_MONKEY = "ALTER TABLE user_profiles ADD COLUMN last_monkey_percentage INTEGER DEFAULT NULL"
+ALTER_ADD_TESTS_TAKEN = "ALTER TABLE user_profiles ADD COLUMN analysis_tests_taken INTEGER NOT NULL DEFAULT 0"
+
+# Data Manipulation and Retrieval
+UPSERT_USER_PROFILE = """
+    INSERT INTO user_profiles (user_id, guild_id, username, last_iq_score, last_monkey_percentage, analysis_tests_taken) 
+    VALUES (?, ?, ?, NULL, NULL, 0)
+    ON CONFLICT(user_id, guild_id) DO UPDATE SET
+        username = EXCLUDED.username;
+"""
+
+INSERT_ANALYSIS_HISTORY = """
+    INSERT INTO user_analysis_history (user_id, guild_id, iq_score, monkey_percentage, timestamp)
+    VALUES (?, ?, ?, ?, ?)
+"""
+
+UPDATE_USER_PROFILE_ANALYSIS = """
+    UPDATE user_profiles
+    SET last_iq_score = ?,
+        last_monkey_percentage = ?,
+        analysis_tests_taken = analysis_tests_taken + 1
+    WHERE user_id = ? AND guild_id = ?
+"""
+
+SELECT_AVG_ANALYSIS_FOR_GUILD = """
+    SELECT
+        user_id,
+        CAST(AVG(iq_score) AS INTEGER) as avg_iq,
+        CAST(AVG(monkey_percentage) AS INTEGER) as avg_monkey
+    FROM user_analysis_history
+    WHERE guild_id = ?
+    GROUP BY user_id
+    HAVING COUNT(id) > 0
+"""
+
+SELECT_USER_PROFILE = """
+    SELECT username, last_iq_score, last_monkey_percentage, analysis_tests_taken
+    FROM user_profiles
+    WHERE user_id = ? AND guild_id = ?
+"""
+
 # This will be set by main.py
 _internal_db_file_path: str | None = None
+_db_connection: sqlite3.Connection | None = None
 
 def configure_database_path(path: str):
     """Sets the database file path for the module to use."""
@@ -15,18 +90,36 @@ def configure_database_path(path: str):
     _internal_db_file_path = path
     logger.info(f"Database path has been configured internally to: {_internal_db_file_path}")
 
-def get_db_connection():
-    """Establishes a connection to the SQLite database."""
+def connect_database():
+    """Creates the single, persistent database connection for the application."""
+    global _db_connection
+    if _db_connection:
+        logger.warning("connect_database called when a connection already exists.")
+        return
     if _internal_db_file_path is None:
         logger.critical("Database path not configured. Call configure_database_path() first.")
-        return None
+        raise RuntimeError("Database path not configured before connect_database() call.")
     try:
-        conn = sqlite3.connect(_internal_db_file_path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        # The timeout parameter is crucial. It tells SQLite to wait for the specified
+        # number of seconds if the database is locked, rather than failing immediately.
+        _db_connection = sqlite3.connect(_internal_db_file_path, timeout=15.0)
+        _db_connection.row_factory = sqlite3.Row
+        logger.info("Successfully created persistent database connection.")
     except sqlite3.Error as e:
-        logger.error(f"Database connection error for path '{_internal_db_file_path}': {e}", exc_info=True)
-        return None
+        logger.error(f"Failed to create persistent database connection: {e}", exc_info=True)
+        _db_connection = None
+
+def close_database():
+    """Closes the single, persistent database connection."""
+    global _db_connection
+    if _db_connection:
+        _db_connection.close()
+        _db_connection = None
+        logger.info("Persistent database connection has been closed.")
+
+def get_db_connection():
+    """Returns the single, persistent database connection."""
+    return _db_connection
 
 def begin_transaction(conn: sqlite3.Connection):
     """Begins a new database transaction."""
@@ -75,59 +168,39 @@ def initialize_database():
     try:
         cursor = conn.cursor()
 
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS user_profiles (
-                user_id INTEGER NOT NULL,
-                guild_id INTEGER NOT NULL,
-                username TEXT,
-                last_iq_score INTEGER DEFAULT NULL,
-                last_monkey_percentage INTEGER DEFAULT NULL,
-                analysis_tests_taken INTEGER NOT NULL DEFAULT 0,
-                PRIMARY KEY (user_id, guild_id)
-            )
-        """)
+        cursor.execute(CREATE_USER_PROFILES_TABLE)
 
-        cursor.execute("PRAGMA table_info(user_profiles)")
+        cursor.execute(PRAGMA_TABLE_INFO)
         columns = [column['name'] for column in cursor.fetchall()]
         if 'username' not in columns:
             try:
-                cursor.execute("ALTER TABLE user_profiles ADD COLUMN username TEXT")
+                cursor.execute(ALTER_ADD_USERNAME)
                 logger.info("Added 'username' column to 'user_profiles' table.")
             except sqlite3.Error as e:
                 logger.error(f"Failed to add 'username' column: {e}", exc_info=True)
 
         if 'last_iq_score' not in columns:
             try:
-                cursor.execute("ALTER TABLE user_profiles ADD COLUMN last_iq_score INTEGER DEFAULT NULL")
+                cursor.execute(ALTER_ADD_LAST_IQ)
                 logger.info("Added 'last_iq_score' column to 'user_profiles' table.")
             except sqlite3.Error as e:
                 logger.error(f"Failed to add 'last_iq_score' column: {e}", exc_info=True)
         if 'last_monkey_percentage' not in columns:
             try:
-                cursor.execute("ALTER TABLE user_profiles ADD COLUMN last_monkey_percentage INTEGER DEFAULT NULL")
+                cursor.execute(ALTER_ADD_LAST_MONKEY)
                 logger.info("Added 'last_monkey_percentage' column to 'user_profiles' table.")
             except sqlite3.Error as e:
                 logger.error(f"Failed to add 'last_monkey_percentage' column: {e}", exc_info=True)
         if 'analysis_tests_taken' not in columns:
             try:
-                cursor.execute("ALTER TABLE user_profiles ADD COLUMN analysis_tests_taken INTEGER NOT NULL DEFAULT 0")
+                cursor.execute(ALTER_ADD_TESTS_TAKEN)
                 logger.info("Added 'analysis_tests_taken' column to 'user_profiles' table.")
             except sqlite3.Error as e:
                 logger.error(f"Failed to add 'analysis_tests_taken' column: {e}", exc_info=True)
 
         # New table to store historical analysis results
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS user_analysis_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                guild_id INTEGER NOT NULL,
-                iq_score INTEGER NOT NULL,
-                monkey_percentage INTEGER NOT NULL,
-                timestamp TEXT NOT NULL,
-                FOREIGN KEY (user_id, guild_id) REFERENCES user_profiles(user_id, guild_id) ON DELETE CASCADE
-            )
-        """)
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_analysis_history_user_guild ON user_analysis_history (user_id, guild_id)")
+        cursor.execute(CREATE_USER_ANALYSIS_HISTORY_TABLE)
+        cursor.execute(CREATE_ANALYSIS_HISTORY_INDEX)
 
         logger.info("Checked/created 'user_profiles' table.")
         logger.info("Checked/created 'user_analysis_history' table and index.")
@@ -136,15 +209,11 @@ def initialize_database():
         logger.info("Database tables checked/created successfully.")
     except sqlite3.Error as e:
         logger.error(f"Error initializing database: {e}", exc_info=True)
-    finally:
-        if conn:
-            conn.close()
 
 def ensure_user_exists(user_id: int, guild_id: int, username: str | None = None):
     """
-    Ensures a user profile and related stats rows (gambling) exist for a given user and guild.
-    Inserts new records with default values if they are not present.
-    If a username is provided, it updates the username in the user_profiles table.
+    Ensures a user profile exists for a given user and guild.
+    Inserts a new record with default values if not present, or updates the username if it is.
     """
     conn = get_db_connection()
     if conn is None:
@@ -154,26 +223,14 @@ def ensure_user_exists(user_id: int, guild_id: int, username: str | None = None)
 
     try:
         cursor = conn.cursor()
-        cursor.execute("""
-            INSERT OR IGNORE INTO user_profiles (user_id, guild_id, username, last_iq_score, last_monkey_percentage, analysis_tests_taken) 
-            VALUES (?, ?, ?, NULL, NULL, 0)
-        """, (user_id, guild_id, current_username)) 
-
-        if username is not None: 
-            cursor.execute("""
-                UPDATE user_profiles 
-                SET username = ?
-                WHERE user_id = ? AND guild_id = ?
-            """, (username, user_id, guild_id))
+        # Use INSERT ... ON CONFLICT DO UPDATE to handle both insertion and updating username atomically.
+        cursor.execute(UPSERT_USER_PROFILE, (user_id, guild_id, current_username))
         conn.commit()
         return True
 
     except sqlite3.Error as e:
         logger.error(f"Error ensuring user profile exists for user {user_id} in guild {guild_id}: {e}", exc_info=True)
         return False 
-    finally:
-        if conn:
-            conn.close()
 
 
 def ensure_user_exists_and_get_profile(user_id: int, guild_id: int, username: str | None = None) -> sqlite3.Row | None:
@@ -191,7 +248,7 @@ def ensure_user_exists_and_get_profile(user_id: int, guild_id: int, username: st
 
 
 # --- Analysis (IQ & Monkey) Stats Functions ---
-def record_analysis_result(user_id: int, guild_id: int, iq_score: int, monkey_percentage: int, username: str) -> bool:
+def record_analysis_result(user_id: int, guild_id: int, iq_score: int, monkey_percentage: int, username: str, guild_name: str) -> bool:
     """
     Records an analysis result (IQ and Monkey %) for a user.
     Stores it in history and updates their latest scores in the profile.
@@ -206,32 +263,20 @@ def record_analysis_result(user_id: int, guild_id: int, iq_score: int, monkey_pe
         timestamp = datetime.now(timezone.utc).isoformat(timespec='seconds')
 
         # Insert into history table
-        cursor.execute("""
-            INSERT INTO user_analysis_history (user_id, guild_id, iq_score, monkey_percentage, timestamp)
-            VALUES (?, ?, ?, ?, ?)
-        """, (user_id, guild_id, iq_score, monkey_percentage, timestamp))
+        cursor.execute(INSERT_ANALYSIS_HISTORY, (user_id, guild_id, iq_score, monkey_percentage, timestamp))
 
-        # Update user_profiles with last scores and increment tests_taken
-        cursor.execute("""
-            UPDATE user_profiles
-            SET last_iq_score = ?,
-                last_monkey_percentage = ?,
-                analysis_tests_taken = analysis_tests_taken + 1,
-                username = ?
-            WHERE user_id = ? AND guild_id = ?
-        """, (iq_score, monkey_percentage, username, user_id, guild_id)) # Added username update here too for consistency
+        # Update user_profiles with last scores and increment tests_taken.
+        # The username update is now handled by ensure_user_exists, so it's removed from here.
+        cursor.execute(UPDATE_USER_PROFILE_ANALYSIS, (iq_score, monkey_percentage, user_id, guild_id))
 
         conn.commit()
-        logger.info(f"Recorded analysis for user {user_id} in guild {guild_id}: IQ={iq_score}, Monkey%={monkey_percentage}. Stored in history and updated profile.")
+        logger.info(f"Analysis {username} ({user_id}) in ({guild_name}) {guild_id}: IQ={iq_score}, M%={monkey_percentage}. Stored in history and updated profile.")
         return True
     except sqlite3.Error as e:
         logger.error(f"Error recording analysis for user {user_id}, guild {guild_id}: {e}", exc_info=True)
         if conn:
             conn.rollback() # Rollback if any part fails
         return False
-    finally:
-        if conn:
-            conn.close()
 
 def get_all_analysis_data_for_guild(guild_id: int) -> list[tuple[int, int, int]]:
     """
@@ -244,24 +289,13 @@ def get_all_analysis_data_for_guild(guild_id: int) -> list[tuple[int, int, int]]
     results = []
     try:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT
-                user_id,
-                CAST(AVG(iq_score) AS INTEGER) as avg_iq,
-                CAST(AVG(monkey_percentage) AS INTEGER) as avg_monkey
-            FROM user_analysis_history
-            WHERE guild_id = ?
-            GROUP BY user_id
-            HAVING COUNT(id) > 0
-        """, (guild_id,))
+        cursor.execute(SELECT_AVG_ANALYSIS_FOR_GUILD, (guild_id,))
         for row in cursor.fetchall():
             results.append((row['user_id'], row['avg_iq'], row['avg_monkey']))
         return results
     except sqlite3.Error as e:
         logger.error(f"Error getting all (average) analysis data for guild {guild_id}: {e}", exc_info=True)
         return []
-    finally:
-        if conn: conn.close()
 
 def get_user_profile(user_id: int, guild_id: int):
     """Retrieves a user's profile data."""
@@ -271,16 +305,9 @@ def get_user_profile(user_id: int, guild_id: int):
 
     try:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT username, last_iq_score, last_monkey_percentage, analysis_tests_taken
-            FROM user_profiles
-            WHERE user_id = ? AND guild_id = ?
-        """, (user_id, guild_id))
+        cursor.execute(SELECT_USER_PROFILE, (user_id, guild_id))
         profile = cursor.fetchone()
         return profile
     except sqlite3.Error as e:
         logger.error(f"Error fetching user profile for user {user_id} in guild {guild_id}: {e}", exc_info=True)
         return None
-    finally:
-        if conn:
-            conn.close()

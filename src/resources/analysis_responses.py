@@ -1,15 +1,44 @@
 import random
 from src.resources.monkey_types import get_random_monkey_type, get_plural_monkey_type
 
+IQ_RANGES = {
+    # key: (min_iq, max_iq)
+    "IQ_0": (0, 0),
+    "IQ_VERY_LOW": (1, 39),
+    "IQ_LOW": (40, 59),
+    "IQ_AVERAGE": (60, 120),
+    "IQ_HIGH": (121, 160),
+    "IQ_GENIUS": (161, 199),
+    "IQ_200": (200, 200),
+}
+
+IQ_GENERATION_WEIGHTS = [
+    # (range_key, weight)
+    ("IQ_0", 5),
+    ("IQ_VERY_LOW", 30),  # Combined 1-19 (10) and 20-39 (20)
+    ("IQ_LOW", 100),
+    ("IQ_AVERAGE", 3000),
+    ("IQ_HIGH", 100),
+    ("IQ_GENIUS", 30),  # Combined 161-180 (20) and 181-199 (10)
+    ("IQ_200", 5),
+]
+
+def generate_weighted_iq() -> int:
+    """Generates an IQ score with a weighted distribution based on defined ranges."""
+    range_keys = [r[0] for r in IQ_GENERATION_WEIGHTS]
+    weights = [r[1] for r in IQ_GENERATION_WEIGHTS]
+
+    chosen_key = random.choices(range_keys, weights=weights, k=1)[0]
+    min_iq, max_iq = IQ_RANGES[chosen_key]
+    
+    return random.randint(min_iq, max_iq)
+
 def get_iq_range_key(iq_score: int) -> str:
     """Maps an IQ score to a predefined range key."""
-    if iq_score == 0: return "IQ_0"
-    elif iq_score <= 39: return "IQ_VERY_LOW"
-    elif iq_score <= 59: return "IQ_LOW"
-    elif iq_score <= 120: return "IQ_AVERAGE"
-    elif iq_score <= 160: return "IQ_HIGH"
-    elif iq_score <= 199: return "IQ_GENIUS"
-    else: return "IQ_200"
+    for key, (min_iq, max_iq) in IQ_RANGES.items():
+        if min_iq <= iq_score <= max_iq:
+            return key
+    return "IQ_AVERAGE"  # Fallback, should not be reached
 
 def get_mp_range_key(monkey_percentage: int) -> str:
     """Maps a monkey percentage to a predefined range key."""

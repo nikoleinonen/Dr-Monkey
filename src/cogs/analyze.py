@@ -1,35 +1,14 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-import random
 import asyncio
+import random
 from src.core.logging import get_logger
-from src.resources import analysis_responses
+from src.resources.analysis_responses import get_analysis_response, generate_weighted_iq
 from src.core import database as db
+from src.core import constants
 
 logger = get_logger("C_Analyze")
-
-# Moved from the old iq.py
-def generate_weighted_iq() -> int:
-    """Generates an IQ score with a weighted distribution."""
-    iq_ranges_config = [
-        # (min_iq, max_iq, weight)
-        (0, 0, 5),
-        (1, 19, 10),
-        (20, 39, 20),
-        (40, 59, 100),
-        (60, 120, 3000),
-        (121, 160, 100),
-        (161, 180, 20),
-        (181, 199, 10),
-        (200, 200, 5)
-    ]
-
-    ranges = [(r[0], r[1]) for r in iq_ranges_config]
-    weights = [r[2] for r in iq_ranges_config]
-
-    chosen_min, chosen_max = random.choices(ranges, weights=weights, k=1)[0]
-    return random.randint(chosen_min, chosen_max)
 
 class AnalyzeCommand(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
@@ -38,8 +17,8 @@ class AnalyzeCommand(commands.Cog):
     @app_commands.command(name="analyze", description="Get your comprehensive primate analysis!")
     @app_commands.check(lambda interaction: interaction.client.check_guild(interaction))
     async def analyze(self, interaction: discord.Interaction) -> None:
-        iq_score = generate_weighted_iq()
-        monkey_percentage = random.randint(0, 100)
+        iq_score: int = generate_weighted_iq()
+        monkey_percentage: int = random.randint(constants.MIN_MONKEY_PERCENTAGE, constants.MAX_MONKEY_PERCENTAGE)
 
         user = interaction.user
         username = user.display_name
@@ -51,7 +30,7 @@ class AnalyzeCommand(commands.Cog):
             logger.error(f"Failed to record analysis for user {username} ({user.id}) in guild {guild_name} ({interaction.guild.id})")
 
         # Always send the full embed first, in every channel
-        raw_response_body = analysis_responses.get_analysis_response(iq_score, monkey_percentage)
+        raw_response_body = get_analysis_response(iq_score, monkey_percentage)
         embed = discord.Embed(title=f"🔬 Primate Analysis Complete! 🔬", description=f"{raw_response_body}", color=discord.Color.purple())
         embed.add_field(name="IQ Score", value=f"**{iq_score}**", inline=True)
         embed.add_field(name="Monkey Purity", value=f"**{monkey_percentage}%**", inline=True)
@@ -62,9 +41,11 @@ class AnalyzeCommand(commands.Cog):
         # If the command was used in a channel that is NOT a designated bot channel,
         # wait 30s and then clean up the message to a more compact form.
         allowed_channels = getattr(interaction.client, "bot_channel_ids", [])
-        if interaction.channel and interaction.channel.id not in allowed_channels:
-            await asyncio.sleep(30)
-            final_message = f"{username} is **{monkey_percentage}%** monkey and has an IQ of **{iq_score}**"
+        if interaction.channel and interaction.channel.id not in allowed_channels: # type: ignore
+            await asyncio.sleep(constants.ANALYZE_CLEANUP_DELAY_SECONDS)
+            final_message = constants.COMPACT_ANALYSIS_MESSAGE.format(
+                username=username, monkey_percentage=monkey_percentage, iq_score=iq_score
+            )
             try:
                 # Edit the original message to remove the embed and show the compact text
                 await interaction.edit_original_response(content=final_message, embed=None)

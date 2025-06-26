@@ -1,11 +1,8 @@
 import logging
 import sys
 import os
-from src import config
 
-def setup_logging(log_level_str: str | None = None, log_to_file: bool = True, log_file_path: str = config.LOG_FILE_PATH) -> None:
-    if log_level_str is None:
-        log_level_str = config.LOG_LEVEL
+def setup_logging(log_level_str: str, log_to_file: bool, log_file_path: str) -> None:
     log_level = getattr(logging, log_level_str.upper(), logging.INFO)
 
     handlers = [logging.StreamHandler(sys.stdout)]

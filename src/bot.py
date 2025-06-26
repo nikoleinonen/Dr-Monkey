@@ -4,7 +4,7 @@ from discord import app_commands
 
 from src.core import database
 from src.core.logging import get_logger
-from src import config
+from src import config, constants
 
 app_logger = get_logger("DrMonkeyBot")
 
@@ -31,7 +31,7 @@ class DrMonkey(commands.Bot):
         elif isinstance(error, app_commands.CommandOnCooldown):
             # Handle cooldowns gracefully
             await interaction.response.send_message(
-                f"You're on cooldown! Please try again in {error.retry_after:.2f} seconds.",
+                constants.DEFAULT_COOLDOWN_MESSAGE.format(retry_after=error.retry_after),
                 ephemeral=True
             )
         else:
@@ -39,7 +39,7 @@ class DrMonkey(commands.Bot):
             app_logger.error(f"An unhandled exception occurred in command '{interaction.command.name}':", exc_info=error)
 
             # Try to send a generic error message
-            error_message = "An unexpected error occurred. The developers have been notified. (LOL not)"
+            error_message = constants.GENERIC_ERROR_MESSAGE
             try:
                 if interaction.response.is_done():
                     await interaction.followup.send(error_message, ephemeral=True)
@@ -93,4 +93,3 @@ class DrMonkey(commands.Bot):
         await self.change_presence(status=discord.Status.online, activity=activity)
         app_logger.info(f'Logged in as {self.user.name} (ID: {self.user.id})')
         app_logger.warning('Bot is ready and online!')
-

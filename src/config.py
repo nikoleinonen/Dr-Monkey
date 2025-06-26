@@ -1,7 +1,9 @@
 import os
 from dotenv import load_dotenv
+from src.core.logging import get_logger
 
 load_dotenv()
+logger = get_logger("Config")
 
 def _parse_comma_separated_ids(ids_str: str | None) -> list[int]:
     """Helper to parse comma-separated integer IDs from a string."""
@@ -10,9 +12,7 @@ def _parse_comma_separated_ids(ids_str: str | None) -> list[int]:
     try:
         return [int(id_val.strip()) for id_val in ids_str.split(',') if id_val.strip().isdigit()]
     except ValueError:
-        # In a real app, you'd want to log this error.
-        # For now, we'll return an empty list to prevent crashes.
-        print(f"Warning: Invalid non-integer value found in one of the ID lists in .env. The list will be empty.")
+        logger.warning("Invalid non-integer value found in one of the ID lists in .env. The list will be empty.")
         return []
 
 # --- Bot Configuration ---
@@ -31,4 +31,3 @@ BOT_CHANNEL_IDS_STR = os.getenv("BOT_CHANNEL_IDS", "")
 
 WHITELISTED_GUILD_IDS = _parse_comma_separated_ids(WHITELISTED_GUILD_IDS_STR)
 BOT_CHANNEL_IDS = _parse_comma_separated_ids(BOT_CHANNEL_IDS_STR)
-

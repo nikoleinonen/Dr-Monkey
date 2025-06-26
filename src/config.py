@@ -23,13 +23,13 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
 # --- Database ---
 # Path to the SQLite database file.
-DATABASE_FILE_PATH = os.getenv("DATABASE_FILE_PATH", "data/bot.db")
+DATABASE_FILE_PATH = os.getenv("DATABASE_FILE_PATH")
 
 # --- Logging ---
 # Minimum logging level.
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 # Path for log file.
-LOG_FILE_PATH = os.getenv("LOG_FILE_PATH", "data/bot.log")
+LOG_FILE_PATH = os.getenv("LOG_FILE_PATH")
 
 # --- Permissions ---
 # Raw string of whitelisted guild IDs from environment.

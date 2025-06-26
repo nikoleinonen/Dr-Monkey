@@ -62,8 +62,8 @@ class MonkeyOffCommand(commands.Cog):
         challenger_monkey_type = monkey_types.get_random_monkey_type()
         opponent_monkey_type = monkey_types.get_random_monkey_type()
 
-        logger.info(f"Monkeyoff in ({guild_name}) {guild_id}: {challenger_name} ({challenger_id}) got {challenger_percentage}%.")
-        logger.info(f"Monkeyoff in ({guild_name}) {guild_id}: {opponent_name} ({opponent_id}) got {opponent_percentage}%.")
+        logger.debug(f"Monkeyoff in ({guild_name}) {guild_id}: {challenger_name} ({challenger_id}) got {challenger_percentage}%.")
+        logger.debug(f"Monkeyoff in ({guild_name}) {guild_id}: {opponent_name} ({opponent_id}) got {opponent_percentage}%.")
 
         embed_color = discord.Color.default()
         if challenger_percentage > opponent_percentage:

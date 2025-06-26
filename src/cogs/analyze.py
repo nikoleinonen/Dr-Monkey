@@ -5,7 +5,8 @@ import asyncio
 import random
 from src.core.logging import get_logger
 from src.resources.analysis_responses import get_analysis_response, generate_weighted_iq
-from src.core import database as db
+from src.utils.checks import is_whitelisted_guild
+from src.core.database import DatabaseManager # Import DatabaseManager for type hinting
 from src.core import constants
 
 logger = get_logger("C_Analyze")
@@ -15,7 +16,7 @@ class AnalyzeCommand(commands.Cog):
         self.bot = bot
 
     @app_commands.command(name="analyze", description="Get your comprehensive primate analysis!")
-    @app_commands.check(lambda interaction: interaction.client.check_guild(interaction))
+    @is_whitelisted_guild()
     async def analyze(self, interaction: discord.Interaction) -> None:
         iq_score: int = generate_weighted_iq()
         monkey_percentage: int = random.randint(constants.MIN_MONKEY_PERCENTAGE, constants.MAX_MONKEY_PERCENTAGE)
@@ -26,7 +27,7 @@ class AnalyzeCommand(commands.Cog):
 
         # Record the analysis result in the database
         # The guild check decorator ensures interaction.guild is not None
-        if not db.record_analysis_result(user.id, interaction.guild.id, iq_score, monkey_percentage, username, guild_name):
+        if not self.bot.db_manager.record_analysis_result(user.id, interaction.guild.id, iq_score, monkey_percentage, username, guild_name):
             logger.error(f"Failed to record analysis for user {username} ({user.id}) in guild {guild_name} ({interaction.guild.id})")
 
         # Always send the full embed first, in every channel

@@ -1,12 +1,12 @@
 import asyncio
 from src.bot import DrMonkey
 from src.core.logging import setup_logging, get_logger
-from src.core import database
+from src.core.database import DatabaseManager # Import the class
 from src import config
 
 setup_logging(
     log_level_str=config.LOG_LEVEL,
-    log_to_file=True, # Assuming we always want to log to file if path is provided
+    log_to_file=True,
     log_file_path=config.LOG_FILE_PATH
 )
 app_logger = get_logger("DrMonkey")
@@ -17,15 +17,16 @@ async def run_bot():
         app_logger.critical("DISCORD_TOKEN not found in environment variables.")
         return
 
-    database.configure_database_path(config.DATABASE_FILE_PATH)
-    database.connect_database()
+    db_manager = DatabaseManager() # Instantiate the manager
+    db_manager.configure_database_path(config.DATABASE_FILE_PATH)
+    db_manager.connect_database()
 
-    bot = DrMonkey()
+    bot = DrMonkey(db_manager=db_manager) # Pass the manager to the bot
     try:
         await bot.start(config.DISCORD_TOKEN)
     finally:
         await bot.close()
-        database.close_database()
+        db_manager.close_database() # Close connection via manager
         app_logger.info("Bot has been shut down and database connection closed.")
 
 def main():

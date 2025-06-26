@@ -4,7 +4,7 @@ from discord import app_commands
 import random
 from src.core.logging import get_logger
 from src.resources import monkeyoff_responses
-from src.core import database as db
+from src.utils.checks import is_whitelisted_guild
 
 
 logger = get_logger("C_MonkeyOff")
@@ -15,13 +15,9 @@ class MonkeyOffCommand(commands.Cog):
         self.bot = bot
     
     @app_commands.command(name="monkeyoff", description=f"Challenge another user to a monkey-off!")
-    @app_commands.check(lambda interaction: interaction.client.check_guild(interaction)) # Keep guild check
+    @is_whitelisted_guild()
     @app_commands.describe(opponent="The user you're challenging.")
     async def monkeyoff(self, interaction: discord.Interaction, opponent: discord.Member) -> None:
-        if interaction.guild is None:
-            await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
-            return
-        guild_name = interaction.guild.name
 
         challenger = interaction.user
         guild_id = interaction.guild.id
@@ -29,14 +25,15 @@ class MonkeyOffCommand(commands.Cog):
         challenger_name = challenger.display_name
         opponent_id = opponent.id
         opponent_name = opponent.display_name
+        guild_name = interaction.guild.name # Safe to access now
 
         if challenger.id == opponent.id:
             await interaction.response.send_message("You can't monkey-off against yourself! Find a worthy adversary. OOK!", ephemeral=True)
             return
 
         # Ensure users exist in the database (for profile updates like username)
-        db.ensure_user_exists(challenger_id, guild_id, challenger_name)
-        db.ensure_user_exists(opponent_id, guild_id, opponent_name)
+        self.bot.db_manager.ensure_user_exists(challenger_id, guild_id, challenger_name)
+        self.bot.db_manager.ensure_user_exists(opponent_id, guild_id, opponent_name)
 
         # Generate random monkey percentages
         challenger_percentage = random.randint(0, 100)

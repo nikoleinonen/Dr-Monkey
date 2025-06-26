@@ -26,12 +26,14 @@ def is_allowed_bot_channel():
             await interaction.response.send_message("This command is not allowed in this channel. Please use a designated bot channel.", ephemeral=True)
             return False
     return app_commands.check(predicate)
-
-async def guild_whitelist_check(interaction: discord.Interaction) -> bool:
-    """A predicate that checks if the command is used in a whitelisted guild."""
-    # The `check_guild` method is defined on our custom DrMonkey bot class.
-    if hasattr(interaction.client, "check_guild") and callable(interaction.client.check_guild):
-        return await interaction.client.check_guild(interaction)
-
-    logger.warning("guild_whitelist_check: interaction.client is missing 'check_guild' method.")
-    return False # Fails safely if the method doesn't exist.
+    
+def is_whitelisted_guild():
+    """
+    A discord.py check decorator to verify if a command is used in a whitelisted guild.
+    Relies on the bot's `check_guild` method.
+    """
+    async def predicate(interaction: discord.Interaction) -> bool:
+        if hasattr(interaction.client, "check_guild") and callable(interaction.client.check_guild):
+            return await interaction.client.check_guild(interaction)
+        return False
+    return app_commands.check(predicate)

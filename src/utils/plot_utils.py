@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import io
 import discord
 from datetime import datetime
+from src.core.database import DatabaseManager # Import DatabaseManager
 from src.utils.discord_utils import get_display_name_for_user_id
 from src.utils.formatters import format_large_number
 from src.core import constants
@@ -20,7 +21,7 @@ async def generate_scatter_rank_plot(
     x_label: str
 ) -> io.BytesIO | None:
     """
-    Generates a scatter plot for rankings (e.g., IQ vs Monkey Purity, Net Gambling vs Games Played).
+    Generates a scatter plot for rankings (e.g., IQ vs Monkey Purity).
     Returns a BytesIO buffer containing the plot image.
     """
     if not data_tuples:
@@ -67,6 +68,7 @@ async def generate_scatter_rank_plot(
 async def generate_leaderboard_string(
     interaction: discord.Interaction,
     ranked_data: list[tuple[int, float]],
+    db_manager: DatabaseManager, # Add db_manager parameter
     metric_name: str,
     limit: int = 10
 ) -> str | None:
@@ -80,7 +82,7 @@ async def generate_leaderboard_string(
     
     for i, (user_id, score_value) in enumerate(ranked_data[:limit]):
         rank_num = i + 1
-        name_to_display = await get_display_name_for_user_id(user_id, interaction.guild)
+        name_to_display = await get_display_name_for_user_id(user_id, interaction.guild, db_manager)
         
         if len(name_to_display) > 25:
             name_to_display = name_to_display[:22] + "..."

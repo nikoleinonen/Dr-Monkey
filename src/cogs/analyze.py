@@ -51,7 +51,7 @@ class AnalyzeCommand(commands.Cog):
         # wait and then edit the message to a compact form.
         allowed_channels = getattr(interaction.client, "bot_channel_ids", [])
         if interaction.channel and interaction.channel.id not in allowed_channels:
-            await asyncio.sleep(constants.ANALYZE_CLEANUP_DELAY_SECONDS)
+            await asyncio.sleep(constants.MESSAGE_CLEANUP_DELAY_SECONDS)
             final_message = constants.COMPACT_ANALYSIS_MESSAGE.format(
                 username=username, monkey_percentage=monkey_percentage, iq_score=iq_score
             )

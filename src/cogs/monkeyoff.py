@@ -2,9 +2,11 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import random
+import asyncio
 import functools
 from src.core.logging import get_logger 
 from src.resources import monkeyoff_responses, monkey_types
+from src.core import constants
 from src.utils.checks import is_whitelisted_guild
 
 # Initialize logger for the MonkeyOff cog.
@@ -97,6 +99,39 @@ class MonkeyOffCommand(commands.Cog):
         embed.add_field(name=f"{opponent.display_name}'s Form", value=f"**{opponent_monkey_type}**!", inline=True)
 
         await interaction.followup.send(embed=embed)
+
+        # If the command was used in a non-designated bot channel,
+        # wait and then edit the message to a compact form.
+        allowed_channels = getattr(interaction.client, "bot_channel_ids", [])
+        if interaction.channel and interaction.channel.id not in allowed_channels:
+            await asyncio.sleep(constants.MESSAGE_CLEANUP_DELAY_SECONDS)
+
+            final_message = ""
+            if winner_id is None:  # Tie
+                final_message = constants.COMPACT_MONKEYOFF_TIE_MESSAGE.format(
+                    challenger_name=challenger_name,
+                    challenger_percentage=challenger_percentage,
+                    opponent_name=opponent_name,
+                    opponent_percentage=opponent_percentage,
+                )
+            else:
+                winner_name = challenger_name if winner_id == challenger_id else opponent_name
+                final_message = constants.COMPACT_MONKEYOFF_MESSAGE.format(
+                    challenger_name=challenger_name,
+                    challenger_percentage=challenger_percentage,
+                    opponent_name=opponent_name,
+                    opponent_percentage=opponent_percentage,
+                    winner_name=winner_name,
+                )
+
+            try:
+                # Edit the original message to a compact text format.
+                await interaction.edit_original_response(content=final_message, embed=None)
+            except discord.NotFound:
+                logger.warning(
+                    f"Could not edit original monkeyoff message for {challenger_name} vs {opponent_name}, "
+                    f"it was likely deleted before cleanup."
+                )
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(MonkeyOffCommand(bot))

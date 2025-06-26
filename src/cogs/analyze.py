@@ -3,9 +3,9 @@ from discord.ext import commands
 from discord import app_commands
 import random
 import asyncio
-from src.logging_config import get_logger
-from src.commands.responses import analysis_responses
-import src.database_manager as db
+from src.core.logging import get_logger
+from src.resources import analysis_responses
+from src.core import database as db
 
 logger = get_logger("C_Analyze")
 
@@ -43,11 +43,12 @@ class AnalyzeCommand(commands.Cog):
 
         user = interaction.user
         username = user.display_name
+        guild_name = interaction.guild.name
 
         # Record the analysis result in the database
         # The guild check decorator ensures interaction.guild is not None
-        if not db.record_analysis_result(user.id, interaction.guild.id, iq_score, monkey_percentage, username):
-            logger.error(f"Failed to record analysis for user {user.id} in guild {interaction.guild.id}")
+        if not db.record_analysis_result(user.id, interaction.guild.id, iq_score, monkey_percentage, username, guild_name):
+            logger.error(f"Failed to record analysis for user {username} ({user.id}) in guild {guild_name} ({interaction.guild.id})")
 
         # Always send the full embed first, in every channel
         raw_response_body = analysis_responses.get_analysis_response(iq_score, monkey_percentage)

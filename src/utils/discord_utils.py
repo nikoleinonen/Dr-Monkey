@@ -1,6 +1,6 @@
 import discord
-import src.database_manager as db
-from src.logging_config import get_logger
+from src.core import database as db
+from src.core.logging import get_logger
 
 logger = get_logger("DiscordUtils")
 
@@ -19,7 +19,7 @@ async def get_display_name_for_user_id(
             return member.display_name
         
         # If not in guild (e.g., user left, or not cached), try database
-        profile = db.get_user_profile(user_id, guild.id)
+        profile = db.get_user_profile(user_id, guild.id) # type: ignore
         if profile and profile.get('username'):
             return profile['username']
     

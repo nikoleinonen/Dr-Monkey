@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 import sqlite3
 import os
 import logging
-from src.logging_config import get_logger
+from src.core.logging import get_logger
 
 logger = get_logger("DB_Manager")
 

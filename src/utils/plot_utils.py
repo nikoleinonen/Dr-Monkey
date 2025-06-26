@@ -6,13 +6,13 @@ import discord
 from datetime import datetime
 from src.utils.discord_utils import get_display_name_for_user_id
 from src.utils.formatters import format_large_number
-from src.logging_config import get_logger
+from src.core.logging import get_logger
 
 logger = get_logger("PlotUtils")
 
 async def generate_scatter_rank_plot(
     interaction: discord.Interaction,
-    data_tuples: list[tuple[int, float, float]], # (user_id, y_value, x_value)
+    data_tuples: list[tuple[int, float, float]],
     target_user_id: int,
     title: str,
     y_label: str,

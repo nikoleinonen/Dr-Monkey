@@ -1,5 +1,5 @@
 import random
-from src.commands.responses.monkey_types import get_random_monkey_type, get_plural_monkey_type
+from src.resources.monkey_types import get_random_monkey_type, get_plural_monkey_type
 
 def get_iq_range_key(iq_score: int) -> str:
     """Maps an IQ score to a predefined range key."""

@@ -2,9 +2,10 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import random
-from src.logging_config import get_logger
-from src.commands.responses import monkeyoff_responses
-import src.database_manager as db
+from src.core.logging import get_logger
+from src.resources import monkeyoff_responses
+from src.core import database as db
+
 
 logger = get_logger("C_MonkeyOff")
 
@@ -20,6 +21,7 @@ class MonkeyOffCommand(commands.Cog):
         if interaction.guild is None:
             await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
             return
+        guild_name = interaction.guild.name
 
         challenger = interaction.user
         guild_id = interaction.guild.id
@@ -40,8 +42,8 @@ class MonkeyOffCommand(commands.Cog):
         challenger_percentage = random.randint(0, 100)
         opponent_percentage = random.randint(0, 100)
 
-        logger.info(f"Monkeyoff: Challenger {challenger_name} ({challenger_id}) got {challenger_percentage}%.")
-        logger.info(f"Monkeyoff: Opponent {opponent_name} ({opponent_id}) got {opponent_percentage}%.")
+        logger.info(f"Monkeyoff in ({guild_name}) {guild_id}: {challenger_name} ({challenger_id}) got {challenger_percentage}%.")
+        logger.info(f"Monkeyoff in ({guild_name}) {guild_id}: {opponent_name} ({opponent_id}) got {opponent_percentage}%.")
 
         embed_color = discord.Color.default()
         if challenger_percentage > opponent_percentage:

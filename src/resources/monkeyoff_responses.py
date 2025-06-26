@@ -1,6 +1,6 @@
 import random
 from discord.member import Member
-from src.commands.responses.monkey_types import get_random_monkey_type, get_plural_monkey_type
+from src.resources.monkey_types import get_random_monkey_type, get_plural_monkey_type
 
 def get_monkeyoff_response(challenger: Member, challenger_percentage: int, opponent: Member, opponent_percentage: int) -> dict[str, str]:
     """

@@ -1,9 +1,9 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-import src.database_manager as db
+from src.core import database as db
 from src.utils.plot_utils import generate_scatter_rank_plot, generate_leaderboard_string
-from src.logging_config import get_logger
+from src.core.logging import get_logger
 
 logger = get_logger("C_Ranks")
 

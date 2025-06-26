@@ -1,13 +1,11 @@
 import logging
 import sys
 import os
+from src import config
 
-DEFAULT_LOG_LEVEL = "INFO"
-DEFAULT_LOG_FILE_PATH = "data/bot.log"
-
-def setup_logging(log_level_str: str | None = None, log_to_file: bool = False, log_file_path: str = DEFAULT_LOG_FILE_PATH) -> None:
+def setup_logging(log_level_str: str | None = None, log_to_file: bool = True, log_file_path: str = config.LOG_FILE_PATH) -> None:
     if log_level_str is None:
-        log_level_str = os.getenv("LOG_LEVEL", DEFAULT_LOG_LEVEL)
+        log_level_str = config.LOG_LEVEL
     log_level = getattr(logging, log_level_str.upper(), logging.INFO)
 
     handlers = [logging.StreamHandler(sys.stdout)]

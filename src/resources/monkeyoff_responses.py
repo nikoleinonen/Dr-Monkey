@@ -1,10 +1,10 @@
 import random
 from discord.member import Member
-from src.resources.monkey_types import get_random_monkey_type, get_plural_monkey_type
+from src.resources.monkey_types import get_plural_monkey_type
 
 # --- Response Templates ---
-# These lists contain dictionaries with 'title' and 'description' keys.
-# The strings use Python's .format() syntax for placeholders.
+# These lists contain dictionaries with 'title' and 'description' for monkey-off results.
+# Placeholders use Python's .format() syntax.
 
 _TIE_RESPONSES = [
     {"title": "🐒 **{m_type_upper} STANDOFF!** 🐒", "description": "It's a tie! Both {challenger.mention} and {opponent.mention} are equally **{challenger_percentage}%** {m_type_lower}! The jungle remains in equilibrium."},
@@ -207,9 +207,7 @@ _STANDARD_WIN_RESPONSES = [ # Standard win/loss
 ]
 
 def _format_response(response_template: dict[str, str], **kwargs) -> dict[str, str]:
-    """
-    Formats a response dictionary's title and description using provided keyword arguments.
-    """
+    """Formats a response dictionary's title and description using provided keyword arguments."""
     return {
         "title": response_template["title"].format(**kwargs),
         "description": response_template["description"].format(**kwargs)
@@ -217,8 +215,7 @@ def _format_response(response_template: dict[str, str], **kwargs) -> dict[str, s
 
 def get_monkeyoff_response(challenger: Member, challenger_percentage: int, opponent: Member, opponent_percentage: int, challenger_m_type: str, opponent_m_type: str) -> dict[str, str]:
     """
-    Determines the outcome of a monkey-off and returns a dictionary
-    containing a 'title' and 'description' for the result embed.
+    Determines the outcome of a monkey-off and returns a dictionary with title and description for the embed.
     """
     # Determine the monkey type to use for the response based on the outcome.
     # For a win, use the winner's type. For a tie, pick one randomly.
@@ -229,10 +226,12 @@ def get_monkeyoff_response(challenger: Member, challenger_percentage: int, oppon
     else: # Tie
         m_type = random.choice([challenger_m_type, opponent_m_type])
 
+
     m_type_lower = m_type.lower() # e.g., "monkey"
     m_type_upper = m_type.upper() # e.g., "MONKEY"
     m_type_plural_lower = get_plural_monkey_type(m_type_lower) # e.g., "monkeys"
     m_type_plural_upper = m_type_plural_lower.upper() # e.g., "MONKEYS"
+
 
     # Common arguments for string formatting
     common_kwargs = {
@@ -246,6 +245,7 @@ def get_monkeyoff_response(challenger: Member, challenger_percentage: int, oppon
         "opponent_percentage": opponent_percentage,
     }
     
+    # Determine winner and loser based on percentages.
     if challenger_percentage > opponent_percentage:
         winner, loser, winner_percentage, loser_percentage = challenger, opponent, challenger_percentage, opponent_percentage
     elif challenger_percentage < opponent_percentage:
@@ -253,6 +253,7 @@ def get_monkeyoff_response(challenger: Member, challenger_percentage: int, oppon
     else: # Tie
         chosen_response = random.choice(_TIE_RESPONSES)
         return _format_response(chosen_response, **common_kwargs)
+
 
     # Add winner/loser specific arguments for win/loss scenarios
     common_kwargs.update({
@@ -262,6 +263,8 @@ def get_monkeyoff_response(challenger: Member, challenger_percentage: int, oppon
         "loser_percentage": loser_percentage,
     })
 
+    
+    # Select response list based on win/loss conditions.
     responses_list = []
     if winner_percentage == 100: # Absolute MONKE
         responses_list = _PERFECT_WIN_RESPONSES
@@ -273,6 +276,7 @@ def get_monkeyoff_response(challenger: Member, challenger_percentage: int, oppon
         responses_list = _POOR_LOSS_RESPONSES
     else: # Standard win/loss
         responses_list = _STANDARD_WIN_RESPONSES
+
 
     chosen_response = random.choice(responses_list)
     return _format_response(chosen_response, **common_kwargs)

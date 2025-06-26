@@ -1,8 +1,7 @@
 import random
 from src.resources.monkey_types import get_random_monkey_type, get_plural_monkey_type
-
+# Defines IQ score ranges and their corresponding labels.
 IQ_RANGES = {
-    # key: (min_iq, max_iq)
     "IQ_0": (0, 0),
     "IQ_VERY_LOW": (1, 39),
     "IQ_LOW": (40, 59),
@@ -11,15 +10,14 @@ IQ_RANGES = {
     "IQ_GENIUS": (161, 199),
     "IQ_200": (200, 200),
 }
-
+# Defines weights for generating IQ scores, favoring certain ranges.
 IQ_GENERATION_WEIGHTS = [
-    # (range_key, weight)
     ("IQ_0", 5),
-    ("IQ_VERY_LOW", 30),  # Combined 1-19 (10) and 20-39 (20)
+    ("IQ_VERY_LOW", 30),
     ("IQ_LOW", 100),
     ("IQ_AVERAGE", 3000),
     ("IQ_HIGH", 100),
-    ("IQ_GENIUS", 30),  # Combined 161-180 (20) and 181-199 (10)
+    ("IQ_GENIUS", 30),
     ("IQ_200", 5),
 ]
 
@@ -27,7 +25,6 @@ def generate_weighted_iq() -> int:
     """Generates an IQ score with a weighted distribution based on defined ranges."""
     range_keys = [r[0] for r in IQ_GENERATION_WEIGHTS]
     weights = [r[1] for r in IQ_GENERATION_WEIGHTS]
-
     chosen_key = random.choices(range_keys, weights=weights, k=1)[0]
     min_iq, max_iq = IQ_RANGES[chosen_key]
     
@@ -38,7 +35,7 @@ def get_iq_range_key(iq_score: int) -> str:
     for key, (min_iq, max_iq) in IQ_RANGES.items():
         if min_iq <= iq_score <= max_iq:
             return key
-    return "IQ_AVERAGE"  # Fallback, should not be reached
+    return "IQ_AVERAGE"
 
 def get_mp_range_key(monkey_percentage: int) -> str:
     """Maps a monkey percentage to a predefined range key."""
@@ -48,11 +45,7 @@ def get_mp_range_key(monkey_percentage: int) -> str:
     elif monkey_percentage <= 74: return "MP_MOSTLY"
     elif monkey_percentage <= 99: return "MP_ALMOST_PURE"
     else: return "MP_PURE"
-
-# --- Combined Response Data ---
-# This dictionary holds lists of responses for specific combinations of IQ and Monkey Percentage ranges.
-# The keys are the range keys returned by get_iq_range_key and get_mp_range_key.
-
+# Stores lists of responses for specific combinations of IQ and Monkey Percentage ranges.
 COMBINED_RESPONSES = {
     "IQ_0": {
         "MP_0": [
@@ -761,24 +754,24 @@ def get_analysis_response(iq_score: int, monkey_percentage: int) -> str:
     """
     iq_key = get_iq_range_key(iq_score)
     mp_key = get_mp_range_key(monkey_percentage)
-
-    # Get a random monkey type for formatting
+    
+    # Get a random monkey type for response formatting.
     m_type = get_random_monkey_type()
     m_type_lower = m_type.lower()
     m_type_upper = m_type.upper()
     m_type_plural_lower = get_plural_monkey_type(m_type_lower)
-
-    # Try to find responses for the specific combination
+    
+    # Attempt to find responses for the specific IQ and MP combination.
     responses_for_combination = COMBINED_RESPONSES.get(iq_key, {}).get(mp_key, [])
-
-    # Fallback if a specific combination isn't defined or has no responses
+    
+    # Provide a fallback response if no specific combination is found.
     if not responses_for_combination:
         fallback_response = f"Analysis: IQ **{iq_score}**, Monkey Purity **{monkey_percentage}%**. A unique specimen, this {m_type_lower}! Results are... complex. Requires further study."
         responses_for_combination = [fallback_response]
-
+    
     selected_response = random.choice(responses_for_combination)
-
-    # Format the response string
+    
+    # Format the selected response with dynamic values.
     return selected_response.format(
         iq_score=iq_score,
         monkey_percentage=monkey_percentage,

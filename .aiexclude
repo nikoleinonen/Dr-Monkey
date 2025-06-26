@@ -1,0 +1,37 @@
+# This file tells the AI which files and directories to ignore.
+# It uses a syntax similar to .gitignore.
+
+################################
+## Dependencies & Packages
+################################
+
+# Python virtual environments (contains pip packages)
+**/venv/
+**/.venv/
+**/env/
+
+# Node.js packages
+**/node_modules/
+
+################################
+## Cache & Build Artifacts
+################################
+
+# Python
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/build/
+**/dist/
+**/*.egg-info/
+
+# General
+**/.cache/
+
+################################
+## IDE, System, & Log Files
+################################
+**/.idea/
+**/.vscode/
+**/.DS_Store
+**/*.log

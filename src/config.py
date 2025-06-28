@@ -20,6 +20,12 @@ def _parse_comma_separated_ids(ids_str: str | None) -> list[int]:
 # --- Bot Configuration ---
 # Discord bot token.
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+# Secret key for downloading the database.
+DOWNLOAD_SECRET = os.getenv("DOWNLOAD_SECRET")
+
+# --- Web Server ---
+# Port for the web server. Railway provides this automatically via the PORT env var.
+WEB_SERVER_PORT = int(os.getenv("PORT", 8080))
 
 # --- Database ---
 # Path to the SQLite database file.

@@ -82,6 +82,7 @@ Follow these steps to get Dr. Monkey up and running on your server.
 
     ```env
     DISCORD_TOKEN="YOUR_BOT_TOKEN_HERE"
+    DOWNLOAD_SECRET="A_VERY_SECRET_KEY_FOR_DOWNLOADING_THE_DB" # Add a long, random, secret string here
     DATABASE_FILE_PATH="data/your_database_name.db"
     LOG_LEVEL="INFO" # DEBUG, INFO, WARNING, ERROR, CRITICAL
     LOG_FILE_PATH="logs/dr_monkey.log" # Optional: Leave empty for console only
